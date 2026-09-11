@@ -1,15 +1,15 @@
 """
 Apache Airflow DAG: dataforge_ecommerce_etl
-Orchestrates:
-1. Data Quality Pre-Checks
-2. Ingesting Raw Files and REST API into Bronze S3/MinIO
-3. PySpark Silver Transformations & Curated Deduplication
-4. Data Quality Gate Assertions
-5. Loading Star-Schema Warehouse in PostgreSQL
-6. Alerting and Logging
+Full Orchestration Pipeline:
+1. Ingest flat files & REST API rates into S3 Bronze Lakehouse (Boto3)
+2. Run Delta Lakehouse transformation & deduplication (Delta-RS)
+3. Execute automated Data Quality gate assertions
+4. Load Star-Schema fact & dimension tables into PostgreSQL
 """
 
 from datetime import datetime, timedelta
+import os
+import sys
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
@@ -27,52 +27,51 @@ default_args = {
 with DAG(
     dag_id="dataforge_ecommerce_etl",
     default_args=default_args,
-    description="End-to-End E-Commerce ETL: API & Flat Files -> Bronze S3 -> Silver PySpark -> Gold PostgreSQL",
+    description="Automated E-Commerce Lakehouse & Star-Schema Pipeline",
     schedule_interval="@daily",
     catchup=False,
-    tags=["ecommerce", "pyspark", "s3", "warehouse", "dataforge"],
+    tags=["ecommerce", "s3", "delta-lake", "warehouse", "dataforge"],
 ) as dag:
 
-    # 1. Ingestion Step
-    task_ingest_bronze = BashOperator(
+    # 1. Ingest raw flat files and mock REST API to S3 / MinIO
+    task_ingest_s3 = BashOperator(
         task_id="ingest_bronze_s3",
-        bash_command="python3 /opt/airflow/dags/../src/ingestion/s3_uploader.py || python3 /home/darshan/Projects/dataforge/src/ingestion/s3_uploader.py",
+        bash_command="python3 /opt/airflow/src/ingestion/s3_uploader.py || python3 /home/darshan/Projects/dataforge/src/ingestion/s3_uploader.py",
     )
 
-    # 2. PySpark Silver Transformation
-    task_pyspark_transform = BashOperator(
-        task_id="pyspark_silver_transform",
-        bash_command="python3 /opt/airflow/dags/../src/transformation/spark_transform.py || python3 /home/darshan/Projects/dataforge/src/transformation/spark_transform.py",
+    # 2. Delta Lakehouse ACID write & deduplication
+    task_delta_transform = BashOperator(
+        task_id="delta_lakehouse_transform",
+        bash_command="python3 /opt/airflow/src/transformation/delta_lakehouse.py || python3 /home/darshan/Projects/dataforge/src/transformation/delta_lakehouse.py",
     )
 
-    # 3. Data Quality Gate
+    # 3. Data Quality Gate (Assertions)
     def verify_data_quality(**kwargs):
-        import os
-        import json
-        print("Running Data Quality Checks on Silver Parquet/JSON artifacts...")
-        # Check that silver output exists and has valid rows
-        silver_path = "/opt/airflow/dags/../data/silver/curated_orders.json"
-        if not os.path.exists(silver_path):
-            silver_path = "/home/darshan/Projects/dataforge/data/silver/curated_orders.json"
+        from deltalake import DeltaTable
+        base_dir = "/opt/airflow/data/delta/curated_orders"
+        if not os.path.exists(base_dir):
+            base_dir = "/home/darshan/Projects/dataforge/data/delta/curated_orders"
         
-        with open(silver_path, "r") as f:
-            data = json.load(f)
-            assert len(data) > 0, "Empty dataset in Silver tier!"
-            for row in data:
-                assert row["order_id"] is not None, "Null order_id found!"
-                assert row["amount_usd"] >= 0, "Negative amount found!"
-        print(f"Passed DQ Gate: Verified {len(data)} pristine records.")
+        print(f"Running Data Quality Checks on Delta Table at {base_dir}...")
+        dt = DeltaTable(base_dir)
+        df = dt.to_pandas()
+        
+        assert len(df) > 0, "DQ Check Failed: Empty dataset in Delta layer!"
+        assert df["order_id"].isnull().sum() == 0, "DQ Check Failed: Null order_id found!"
+        assert (df["amount_usd"] < 0).sum() == 0, "DQ Check Failed: Negative amounts found!"
+        assert df["order_id"].nunique() == len(df), "DQ Check Failed: Duplicates exist!"
+        print(f"Data Quality Gate Passed: Successfully verified {len(df):,} pristine records.")
 
     task_dq_gate = PythonOperator(
         task_id="data_quality_gate",
         python_callable=verify_data_quality,
     )
 
-    # 4. Load Star-Schema Warehouse
+    # 4. Load Star-Schema Warehouse in PostgreSQL
     task_load_warehouse = BashOperator(
         task_id="load_postgres_warehouse",
-        bash_command="python3 /opt/airflow/dags/../src/warehouse/loader.py || python3 /home/darshan/Projects/dataforge/src/warehouse/loader.py",
+        bash_command="python3 /opt/airflow/src/warehouse/loader.py || python3 /home/darshan/Projects/dataforge/src/warehouse/loader.py",
     )
 
-    # Pipeline Flow
-    task_ingest_bronze >> task_pyspark_transform >> task_dq_gate >> task_load_warehouse
+    # Pipeline DAG Dependency Flow
+    task_ingest_s3 >> task_delta_transform >> task_dq_gate >> task_load_warehouse

@@ -59,3 +59,19 @@ def test_s3_lake_bucket_and_objects():
     assert "bronze/orders/raw_orders.csv" in keys, "raw_orders.csv missing from S3 bronze layer!"
     assert "bronze/customers/raw_customers.csv" in keys, "raw_customers.csv missing from S3 bronze layer!"
     assert "bronze/reference_rates/rates.json" in keys, "rates.json missing from S3 bronze layer!"
+
+def test_airflow_dag_integrity():
+    # Verify DAG syntax and structure
+    dag_path = os.path.join(BASE_DIR, "dags", "dataforge_ecommerce_dag.py")
+    assert os.path.exists(dag_path), "Airflow DAG file missing!"
+    
+    with open(dag_path, "r") as f:
+        content = f.read()
+    
+    # Assert DAG ID and task sequences
+    assert 'dag_id="dataforge_ecommerce_etl"' in content, "DAG ID not configured correctly"
+    assert "task_ingest_s3" in content, "S3 ingestion task missing"
+    assert "task_delta_transform" in content, "Transformation task missing"
+    assert "task_dq_gate" in content, "Data quality gate task missing"
+    assert "task_load_warehouse" in content, "Warehouse load task missing"
+    assert "task_ingest_s3 >> task_delta_transform >> task_dq_gate >> task_load_warehouse" in content, "Task flow invalid"
