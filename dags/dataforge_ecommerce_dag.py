@@ -36,13 +36,13 @@ with DAG(
     # 1. Ingest raw flat files and mock REST API to S3 / MinIO
     task_ingest_s3 = BashOperator(
         task_id="ingest_bronze_s3",
-        bash_command="python3 /opt/airflow/src/ingestion/s3_uploader.py || python3 /home/darshan/Projects/dataforge/src/ingestion/s3_uploader.py",
+        bash_command="python3 /opt/airflow/src/ingestion/s3_uploader.py || python3 ./src/ingestion/s3_uploader.py",
     )
 
     # 2. Delta Lakehouse ACID write & deduplication
     task_delta_transform = BashOperator(
         task_id="delta_lakehouse_transform",
-        bash_command="python3 /opt/airflow/src/transformation/delta_lakehouse.py || python3 /home/darshan/Projects/dataforge/src/transformation/delta_lakehouse.py",
+        bash_command="python3 /opt/airflow/src/transformation/delta_lakehouse.py || python3 ./src/transformation/delta_lakehouse.py",
     )
 
     # 3. Data Quality Gate (Assertions)
@@ -50,7 +50,7 @@ with DAG(
         from deltalake import DeltaTable
         base_dir = "/opt/airflow/data/delta/curated_orders"
         if not os.path.exists(base_dir):
-            base_dir = "/home/darshan/Projects/dataforge/data/delta/curated_orders"
+            base_dir = "./data/delta/curated_orders"
         
         print(f"Running Data Quality Checks on Delta Table at {base_dir}...")
         dt = DeltaTable(base_dir)
@@ -70,7 +70,7 @@ with DAG(
     # 4. Load Star-Schema Warehouse in PostgreSQL
     task_load_warehouse = BashOperator(
         task_id="load_postgres_warehouse",
-        bash_command="python3 /opt/airflow/src/warehouse/loader.py || python3 /home/darshan/Projects/dataforge/src/warehouse/loader.py",
+        bash_command="python3 /opt/airflow/src/warehouse/loader.py || python3 ./src/warehouse/loader.py",
     )
 
     # Pipeline DAG Dependency Flow
