@@ -1,6 +1,6 @@
 {
   "base_currency": "USD",
-  "last_updated": "2026-09-11T14:40:33.013835",
+  "last_updated": "2026-09-11T14:56:52.167442+00:00",
   "rates": {
     "USD": 1.0,
     "EUR": 1.08,
@@ -9,15 +9,15 @@
   "shipping_carriers": [
     {
       "carrier_id": "FEDEX",
-      "sla_days": 3
+      "sla_days": 2
     },
     {
       "carrier_id": "UPS",
-      "sla_days": 4
+      "sla_days": 3
     },
     {
       "carrier_id": "DHL",
-      "sla_days": 5
+      "sla_days": 4
     }
   ]
 }

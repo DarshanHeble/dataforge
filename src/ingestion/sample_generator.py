@@ -1,104 +1,110 @@
 """
-Synthetic E-Commerce Data & REST API Mock Generator
-Generates:
-1. Customers (CSV)
-2. Products (JSON)
-3. Orders & Order Items (CSV)
-4. Currency Exchange Rates / Shipping Status (Mock REST API JSON)
+High-Performance E-Commerce Data & REST API Mock Generator
+Scales to 50,000+ orders, 10,000 customers, and 500 products.
 """
 
 import json
 import csv
 import random
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "sample")
 
-def generate_sample_data(num_customers=100, num_products=40, num_orders=250):
+def generate_sample_data(num_customers=10000, num_products=500, num_orders=50000):
     os.makedirs(DATA_DIR, exist_ok=True)
     random.seed(42)
 
     # 1. Customers (Flat File: CSV)
-    customers = []
-    cities = ["New York", "San Francisco", "Austin", "Seattle", "Chicago", "Boston", "Denver", "Miami"]
+    cities = ["New York", "San Francisco", "Austin", "Seattle", "Chicago", "Boston", "Denver", "Miami", "Los Angeles", "Atlanta"]
+    customer_ids = [f"CUST_{i:06d}" for i in range(1, num_customers + 1)]
     customer_file = os.path.join(DATA_DIR, "raw_customers.csv")
-    with open(customer_file, mode="w", newline="") as f:
+    
+    print(f"Generating {num_customers} customers...")
+    with open(customer_file, mode="w", newline="", buffering=1024*1024) as f:
         writer = csv.writer(f)
         writer.writerow(["customer_id", "first_name", "last_name", "email", "city", "signup_date"])
-        for i in range(1, num_customers + 1):
-            cid = f"CUST_{i:04d}"
-            fname = f"User{i}"
-            lname = f"Smith{i}"
-            email = f"user{i}@example.com"
+        base_date = datetime(2024, 1, 1)
+        for cid in customer_ids:
+            i = int(cid.split('_')[1])
+            fname = f"Customer{i}"
+            lname = f"Client{i}"
+            email = f"client{i}@example.com"
             city = random.choice(cities)
-            signup = (datetime(2025, 1, 1) + timedelta(days=random.randint(0, 360))).strftime("%Y-%m-%d")
-            customers.append(cid)
+            signup = (base_date + timedelta(days=random.randint(0, 700))).strftime("%Y-%m-%d")
             writer.writerow([cid, fname, lname, email, city, signup])
-    print(f"Generated {num_customers} customers -> {customer_file}")
 
     # 2. Products (Flat File: JSON)
-    categories = ["Electronics", "Home & Kitchen", "Apparel", "Books", "Sports"]
+    categories = ["Electronics", "Home & Kitchen", "Apparel", "Books", "Sports", "Health & Personal Care", "Automotive", "Toys & Games"]
     products = []
+    product_ids = []
     product_file = os.path.join(DATA_DIR, "raw_products.json")
+    
+    print(f"Generating {num_products} products...")
     for i in range(1, num_products + 1):
-        pid = f"PROD_{i:03d}"
-        category = random.choice(categories)
-        base_price = round(random.uniform(9.99, 499.99), 2)
+        pid = f"PROD_{i:04d}"
+        product_ids.append(pid)
+        cat = random.choice(categories)
+        base_price = round(random.uniform(12.50, 899.99), 2)
         products.append({
             "product_id": pid,
-            "product_name": f"{category} Item {i}",
-            "category": category,
+            "product_name": f"{cat} Item {i}",
+            "category": cat,
             "unit_price": base_price,
-            "in_stock": random.randint(10, 500)
+            "in_stock": random.randint(50, 2000)
         })
     with open(product_file, mode="w") as f:
-        json.dump(products, f, indent=2)
-    print(f"Generated {num_products} products -> {product_file}")
+        json.dump(products, f)
 
     # 3. Orders and Order Items (CSV)
     order_file = os.path.join(DATA_DIR, "raw_orders.csv")
-    statuses = ["DELIVERED", "SHIPPED", "PROCESSING", "CANCELLED"]
-    with open(order_file, mode="w", newline="") as f:
+    statuses = ["DELIVERED", "SHIPPED", "PROCESSING"]
+    weights = [0.75, 0.18, 0.07] # 100% positive, valid business states
+
+    print(f"Generating {num_orders} orders with synthetic deduplication scenarios...")
+    with open(order_file, mode="w", newline="", buffering=2*1024*1024) as f:
         writer = csv.writer(f)
         writer.writerow(["order_id", "customer_id", "product_id", "quantity", "unit_price", "currency", "order_status", "order_date"])
         
-        # Inject deliberate duplicate and edge cases for PySpark validation
+        prod_map = {p["product_id"]: p["unit_price"] for p in products}
+        currencies = ["USD", "EUR", "GBP"]
+        order_base_date = datetime(2025, 1, 1)
+
         for i in range(1, num_orders + 1):
-            oid = f"ORD_{i:05d}"
-            cid = random.choice(customers)
-            prod = random.choice(products)
-            qty = random.randint(1, 5)
-            curr = random.choice(["USD", "EUR", "GBP"])
-            status = random.choices(statuses, weights=[0.65, 0.20, 0.10, 0.05])[0]
-            odate = (datetime(2026, 1, 1) + timedelta(days=random.randint(0, 200), hours=random.randint(0, 23))).strftime("%Y-%m-%d %H:%M:%S")
-            writer.writerow([oid, cid, prod["product_id"], qty, prod["unit_price"], curr, status, odate])
-            
-            # 5% duplicate rate to test deduplication
-            if i % 20 == 0:
-                writer.writerow([oid, cid, prod["product_id"], qty, prod["unit_price"], curr, status, odate])
+            oid = f"ORD_{i:06d}"
+            cid = random.choice(customer_ids)
+            pid = random.choice(product_ids)
+            qty = random.randint(1, 6)
+            price = prod_map[pid]
+            curr = random.choice(currencies)
+            status = random.choices(statuses, weights=weights)[0]
+            odate = (order_base_date + timedelta(days=random.randint(0, 420), hours=random.randint(0, 23), minutes=random.randint(0, 59))).strftime("%Y-%m-%d %H:%M:%S")
 
-    print(f"Generated {num_orders}+ orders with deduplication test records -> {order_file}")
+            writer.writerow([oid, cid, pid, qty, price, curr, status, odate])
+            # Inject 1% duplicates to rigorously verify deduplication
+            if i % 100 == 0:
+                writer.writerow([oid, cid, pid, qty, price, curr, status, odate])
 
-    # 4. REST API Mock (Currency Rates & Tracking API Payload)
+    # 4. REST API Mock (Currency Rates & Carrier Service)
     api_payload = {
         "base_currency": "USD",
-        "last_updated": datetime.utcnow().isoformat(),
+        "last_updated": datetime.now(timezone.utc).isoformat(),
         "rates": {
             "USD": 1.0,
             "EUR": 1.08,
             "GBP": 1.28
         },
         "shipping_carriers": [
-            {"carrier_id": "FEDEX", "sla_days": 3},
-            {"carrier_id": "UPS", "sla_days": 4},
-            {"carrier_id": "DHL", "sla_days": 5}
+            {"carrier_id": "FEDEX", "sla_days": 2},
+            {"carrier_id": "UPS", "sla_days": 3},
+            {"carrier_id": "DHL", "sla_days": 4}
         ]
     }
     api_file = os.path.join(DATA_DIR, "mock_rates_api.json")
     with open(api_file, mode="w") as f:
         json.dump(api_payload, f, indent=2)
-    print(f"Generated Mock REST API payload -> {api_file}")
+
+    print(f"Generated complete enterprise dataset: {num_customers} customers, {num_products} products, {num_orders}+ orders.")
 
 if __name__ == "__main__":
     generate_sample_data()

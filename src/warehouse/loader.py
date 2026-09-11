@@ -1,6 +1,6 @@
 """
 Data Warehouse Loader for PostgreSQL
-Loads Silver Cleaned/Curated Data into Star Schema Fact and Dimension Tables with Idempotency.
+Loads Curated Silver/Delta Records into Star-Schema Dimensional Warehouse with High-Performance Batch Loading.
 """
 
 import os
@@ -18,7 +18,7 @@ def get_postgres_connection():
         import psycopg2
         conn = psycopg2.connect(
             host=os.getenv("POSTGRES_HOST", "localhost"),
-            port=int(os.getenv("POSTGRES_PORT", "5432")),
+            port=int(os.getenv("POSTGRES_PORT", "5433")),
             database=os.getenv("POSTGRES_DB", "dataforge_db"),
             user=os.getenv("POSTGRES_USER", "postgres"),
             password=os.getenv("POSTGRES_PASSWORD", "postgres")
@@ -34,12 +34,11 @@ def get_postgres_connection():
 def load_warehouse():
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     sample_dir = os.path.join(base_dir, "data", "sample")
-    silver_dir = os.path.join(base_dir, "data", "silver")
+    delta_dir = os.path.join(base_dir, "data", "delta", "curated_orders")
 
     conn = get_postgres_connection()
     cursor = conn.cursor()
 
-    # DDL Execution for local testing (SQLite or Postgres syntax compatible)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS dim_customer (
         customer_id TEXT PRIMARY KEY,
@@ -75,47 +74,40 @@ def load_warehouse():
     );
     """)
 
-    # 1. Load Customers Dimension
+    # 1. Batch Load Customers Dimension
     cust_file = os.path.join(sample_dir, "raw_customers.csv")
+    customers = []
     with open(cust_file, "r") as f:
         reader = csv.DictReader(f)
         for r in reader:
-            cursor.execute("""
-                INSERT OR REPLACE INTO dim_customer (customer_id, first_name, last_name, email, city, signup_date)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (r["customer_id"], r["first_name"], r["last_name"], r["email"], r["city"], r["signup_date"]))
+            customers.append((r["customer_id"], r["first_name"], r["last_name"], r["email"], r["city"], r["signup_date"]))
+    cursor.executemany("INSERT OR REPLACE INTO dim_customer VALUES (?, ?, ?, ?, ?, ?)", customers)
 
-    # 2. Load Products Dimension
+    # 2. Batch Load Products Dimension
     prod_file = os.path.join(sample_dir, "raw_products.json")
     with open(prod_file, "r") as f:
-        products = json.load(f)
-        for p in products:
-            cursor.execute("""
-                INSERT OR REPLACE INTO dim_product (product_id, product_name, category, base_price)
-                VALUES (?, ?, ?, ?)
-            """, (p["product_id"], p["product_name"], p["category"], p["unit_price"]))
+        raw_prods = json.load(f)
+        products = [(p["product_id"], p["product_name"], p["category"], p["unit_price"]) for p in raw_prods]
+    cursor.executemany("INSERT OR REPLACE INTO dim_product VALUES (?, ?, ?, ?)", products)
 
-    # 3. Load Fact Table from Silver
-    silver_json = os.path.join(silver_dir, "curated_orders.json")
-    loaded_orders = 0
-    if os.path.exists(silver_json):
-        with open(silver_json, "r") as f:
-            curated_orders = json.load(f)
-            for o in curated_orders:
-                # Generate date_id YYYYMMDD
-                dt = datetime.strptime(o["order_date"], "%Y-%m-%d %H:%M:%S")
-                date_id = int(dt.strftime("%Y%m%d"))
-                cursor.execute("""
-                    INSERT OR REPLACE INTO fact_order_sales 
-                    (order_id, customer_id, product_id, date_id, order_date, quantity, unit_price, original_currency, amount_usd, order_status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    o["order_id"], o["customer_id"], o["product_id"], date_id,
-                    o["order_date"], o["quantity"], o["unit_price"], o["currency"],
-                    o["amount_usd"], o["order_status"]
-                ))
-                loaded_orders += 1
+    # 3. Read from Delta Table for Fact Load
+    from deltalake import DeltaTable
+    logger.info(f"Reading from Delta Table at {delta_dir} for warehouse load...")
+    dt = DeltaTable(delta_dir)
+    orders_df = dt.to_pandas()
 
+    fact_records = []
+    for _, r in orders_df.iterrows():
+        dt_obj = datetime.strptime(str(r["order_date"]), "%Y-%m-%d %H:%M:%S")
+        date_id = int(dt_obj.strftime("%Y%m%d"))
+        fact_records.append((
+            str(r["order_id"]), str(r["customer_id"]), str(r["product_id"]), date_id,
+            str(r["order_date"]), int(r["quantity"]), float(r["unit_price"]), str(r["currency"]),
+            float(r["amount_usd"]), str(r["order_status"])
+        ))
+
+    logger.info(f"Writing {len(fact_records)} fact rows into warehouse...")
+    cursor.executemany("INSERT OR REPLACE INTO fact_order_sales VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", fact_records)
     conn.commit()
 
     cursor.execute("SELECT COUNT(*) FROM dim_customer")
@@ -126,7 +118,7 @@ def load_warehouse():
     order_metrics = cursor.fetchone()
     conn.close()
 
-    logger.info(f"Warehouse Sync Complete! Customers: {cust_cnt} | Products: {prod_cnt} | Orders: {order_metrics[0]} | Total Gross Revenue: ${order_metrics[1]:,.2f}")
+    logger.info(f"Warehouse Sync Complete! Customers: {cust_cnt:,} | Products: {prod_cnt:,} | Orders: {order_metrics[0]:,} | Total Gross Revenue: ${order_metrics[1]:,.2f}")
     return {
         "customers_loaded": cust_cnt,
         "products_loaded": prod_cnt,

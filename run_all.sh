@@ -2,13 +2,12 @@
 # ==============================================================================
 # DataForge: One-Click Master Pipeline & Platform Launcher
 # Executes:
-# 1. Verification of environment & dependencies
-# 2. Synthetic raw dataset generation (Orders, Customers, Products, REST API)
-# 3. PySpark / Silver transformation with deduplication & currency normalization
-# 4. Data Quality verification gate
-# 5. Star-Schema Data Warehouse load
-# 6. Starts Docker Compose infrastructure (PostgreSQL on 5433, MinIO S3 on 9000/9001)
-# 7. Launches React UI Dashboard
+# 1. 50,000+ Enterprise Data Generation (Orders, Customers, Products, REST API)
+# 2. Delta Lakehouse ACID Ingestion & Partitioning via Delta-RS
+# 3. Time-Travel & ACID Transaction Verification
+# 4. Star-Schema Data Warehouse Batch Load (PostgreSQL / SQLite)
+# 5. Starts Docker Compose infrastructure (PostgreSQL on 5433, MinIO S3 on 9000/9001)
+# 6. Launches React UI Dashboard
 # ==============================================================================
 
 set -e
@@ -20,36 +19,40 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 echo -e "${BLUE}=====================================================${NC}"
-echo -e "${CYAN}        ⚡ DATAFORGE: E-COMMERCE DATA PLATFORM        ${NC}"
+echo -e "${CYAN}        ⚡ DATAFORGE: ENTERPRISE DELTA LAKEHOUSE      ${NC}"
 echo -e "${BLUE}=====================================================${NC}"
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_ROOT"
 
-# 1. Generate Sample Data
-echo -e "\n${YELLOW}[Step 1/5] Generating Raw Ingestion Sources & Mock REST API...${NC}"
+# 1. Generate 50,000+ Records
+echo -e "\n${YELLOW}[Step 1/5] Generating 50,000+ Ingestion Records & Mock REST API...${NC}"
 python3 "$PROJECT_ROOT/src/ingestion/sample_generator.py"
 
-# 2. Run Transformation & Quality Checks
-echo -e "\n${YELLOW}[Step 2/5] Running PySpark / Silver Transformation & Deduplication...${NC}"
-python3 "$PROJECT_ROOT/src/transformation/spark_transform.py"
+# 2. Run Delta Lakehouse Transformation
+echo -e "\n${YELLOW}[Step 2/5] Writing Partitioned Delta Lake Table with ACID Log...${NC}"
+python3 "$PROJECT_ROOT/src/transformation/delta_lakehouse.py"
 
-# 3. Load Warehouse
-echo -e "\n${YELLOW}[Step 3/5] Loading Star-Schema Warehouse Fact & Dimensions...${NC}"
+# 3. Test Delta Time Travel
+echo -e "\n${YELLOW}[Step 3/5] Verifying Delta Lake Time-Travel Snapshots & Commits...${NC}"
+python3 "$PROJECT_ROOT/src/transformation/test_delta_timetravel.py"
+
+# 4. Load Warehouse
+echo -e "\n${YELLOW}[Step 4/5] Loading 50,000+ Rows into Star-Schema Data Warehouse...${NC}"
 python3 "$PROJECT_ROOT/src/warehouse/loader.py"
 
-# 4. Docker Compose Verification / Launch
-echo -e "\n${YELLOW}[Step 4/5] Checking Docker Infrastructure...${NC}"
+# 5. Docker Infrastructure
+echo -e "\n${YELLOW}[Step 5/6] Checking Docker Infrastructure...${NC}"
 if command -v docker &> /dev/null && docker info &> /dev/null; then
     echo -e "${GREEN}Starting MinIO S3 and PostgreSQL containers...${NC}"
-    docker-compose up -d minio postgres
-    echo -e "${GREEN}Containers active: MinIO on http://localhost:9001 | Postgres on localhost:5433${NC}"
+    docker-compose up -d minio postgres &
+    echo -e "${GREEN}Containers initializing: MinIO (9001) | Postgres (5433)${NC}"
 else
     echo -e "${YELLOW}Docker is not active; running in local pipeline mode.${NC}"
 fi
 
-# 5. Launch React UI
-echo -e "\n${YELLOW}[Step 5/5] Launching DataForge Monitoring UI...${NC}"
+# 6. Launch React UI
+echo -e "\n${YELLOW}[Step 6/6] Launching DataForge Monitoring UI...${NC}"
 if [ -d "$PROJECT_ROOT/ui" ]; then
     cd "$PROJECT_ROOT/ui"
     echo -e "${GREEN}DataForge is ready! Starting dev server at http://localhost:5173 ...${NC}"
