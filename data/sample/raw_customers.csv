@@ -1,0 +1,101 @@
+customer_id,first_name,last_name,email,city,signup_date
+CUST_0001,User1,Smith1,user1@example.com,San Francisco,2025-01-13
+CUST_0002,User2,Smith2,user2@example.com,Chicago,2025-05-06
+CUST_0003,User3,Smith3,user3@example.com,Seattle,2025-03-13
+CUST_0004,User4,Smith4,user4@example.com,San Francisco,2025-12-13
+CUST_0005,User5,Smith5,user5@example.com,San Francisco,2025-10-30
+CUST_0006,User6,Smith6,user6@example.com,Denver,2025-01-17
+CUST_0007,User7,Smith7,user7@example.com,New York,2025-02-17
+CUST_0008,User8,Smith8,user8@example.com,Seattle,2025-04-30
+CUST_0009,User9,Smith9,user9@example.com,New York,2025-10-15
+CUST_0010,User10,Smith10,user10@example.com,Seattle,2025-11-29
+CUST_0011,User11,Smith11,user11@example.com,Denver,2025-04-23
+CUST_0012,User12,Smith12,user12@example.com,Miami,2025-10-29
+CUST_0013,User13,Smith13,user13@example.com,Chicago,2025-01-04
+CUST_0014,User14,Smith14,user14@example.com,Austin,2025-12-24
+CUST_0015,User15,Smith15,user15@example.com,Denver,2025-06-24
+CUST_0016,User16,Smith16,user16@example.com,Chicago,2025-03-21
+CUST_0017,User17,Smith17,user17@example.com,Seattle,2025-06-22
+CUST_0018,User18,Smith18,user18@example.com,San Francisco,2025-02-17
+CUST_0019,User19,Smith19,user19@example.com,Denver,2025-02-19
+CUST_0020,User20,Smith20,user20@example.com,Boston,2025-06-26
+CUST_0021,User21,Smith21,user21@example.com,Chicago,2025-01-23
+CUST_0022,User22,Smith22,user22@example.com,Miami,2025-10-02
+CUST_0023,User23,Smith23,user23@example.com,San Francisco,2025-07-13
+CUST_0024,User24,Smith24,user24@example.com,San Francisco,2025-10-10
+CUST_0025,User25,Smith25,user25@example.com,Chicago,2025-11-18
+CUST_0026,User26,Smith26,user26@example.com,Boston,2025-10-23
+CUST_0027,User27,Smith27,user27@example.com,Seattle,2025-12-27
+CUST_0028,User28,Smith28,user28@example.com,San Francisco,2025-01-24
+CUST_0029,User29,Smith29,user29@example.com,Seattle,2025-05-29
+CUST_0030,User30,Smith30,user30@example.com,San Francisco,2025-04-30
+CUST_0031,User31,Smith31,user31@example.com,San Francisco,2025-07-14
+CUST_0032,User32,Smith32,user32@example.com,Chicago,2025-08-21
+CUST_0033,User33,Smith33,user33@example.com,Boston,2025-03-25
+CUST_0034,User34,Smith34,user34@example.com,Boston,2025-07-01
+CUST_0035,User35,Smith35,user35@example.com,Seattle,2025-12-10
+CUST_0036,User36,Smith36,user36@example.com,Chicago,2025-12-26
+CUST_0037,User37,Smith37,user37@example.com,San Francisco,2025-11-08
+CUST_0038,User38,Smith38,user38@example.com,Austin,2025-10-01
+CUST_0039,User39,Smith39,user39@example.com,Seattle,2025-03-25
+CUST_0040,User40,Smith40,user40@example.com,Miami,2025-07-14
+CUST_0041,User41,Smith41,user41@example.com,Chicago,2025-11-24
+CUST_0042,User42,Smith42,user42@example.com,Seattle,2025-12-17
+CUST_0043,User43,Smith43,user43@example.com,Boston,2025-01-29
+CUST_0044,User44,Smith44,user44@example.com,Seattle,2025-01-17
+CUST_0045,User45,Smith45,user45@example.com,Boston,2025-07-25
+CUST_0046,User46,Smith46,user46@example.com,Chicago,2025-02-03
+CUST_0047,User47,Smith47,user47@example.com,Seattle,2025-10-18
+CUST_0048,User48,Smith48,user48@example.com,Boston,2025-04-19
+CUST_0049,User49,Smith49,user49@example.com,Miami,2025-07-22
+CUST_0050,User50,Smith50,user50@example.com,Miami,2025-03-15
+CUST_0051,User51,Smith51,user51@example.com,Chicago,2025-03-13
+CUST_0052,User52,Smith52,user52@example.com,Seattle,2025-10-15
+CUST_0053,User53,Smith53,user53@example.com,Chicago,2025-10-27
+CUST_0054,User54,Smith54,user54@example.com,Denver,2025-10-26
+CUST_0055,User55,Smith55,user55@example.com,Denver,2025-07-05
+CUST_0056,User56,Smith56,user56@example.com,Seattle,2025-03-12
+CUST_0057,User57,Smith57,user57@example.com,Miami,2025-02-16
+CUST_0058,User58,Smith58,user58@example.com,New York,2025-02-26
+CUST_0059,User59,Smith59,user59@example.com,Austin,2025-11-18
+CUST_0060,User60,Smith60,user60@example.com,Austin,2025-12-15
+CUST_0061,User61,Smith61,user61@example.com,Denver,2025-11-02
+CUST_0062,User62,Smith62,user62@example.com,San Francisco,2025-07-17
+CUST_0063,User63,Smith63,user63@example.com,Denver,2025-11-02
+CUST_0064,User64,Smith64,user64@example.com,Miami,2025-09-28
+CUST_0065,User65,Smith65,user65@example.com,Chicago,2025-10-11
+CUST_0066,User66,Smith66,user66@example.com,New York,2025-12-15
+CUST_0067,User67,Smith67,user67@example.com,San Francisco,2025-12-16
+CUST_0068,User68,Smith68,user68@example.com,Chicago,2025-11-25
+CUST_0069,User69,Smith69,user69@example.com,Boston,2025-02-27
+CUST_0070,User70,Smith70,user70@example.com,Chicago,2025-08-11
+CUST_0071,User71,Smith71,user71@example.com,Austin,2025-08-21
+CUST_0072,User72,Smith72,user72@example.com,New York,2025-05-15
+CUST_0073,User73,Smith73,user73@example.com,Austin,2025-09-17
+CUST_0074,User74,Smith74,user74@example.com,San Francisco,2025-11-17
+CUST_0075,User75,Smith75,user75@example.com,Chicago,2025-11-24
+CUST_0076,User76,Smith76,user76@example.com,Seattle,2025-03-20
+CUST_0077,User77,Smith77,user77@example.com,Boston,2025-03-24
+CUST_0078,User78,Smith78,user78@example.com,New York,2025-11-03
+CUST_0079,User79,Smith79,user79@example.com,Boston,2025-09-08
+CUST_0080,User80,Smith80,user80@example.com,New York,2025-02-27
+CUST_0081,User81,Smith81,user81@example.com,Boston,2025-06-07
+CUST_0082,User82,Smith82,user82@example.com,Seattle,2025-01-30
+CUST_0083,User83,Smith83,user83@example.com,Seattle,2025-10-18
+CUST_0084,User84,Smith84,user84@example.com,San Francisco,2025-02-13
+CUST_0085,User85,Smith85,user85@example.com,Miami,2025-02-05
+CUST_0086,User86,Smith86,user86@example.com,Austin,2025-03-07
+CUST_0087,User87,Smith87,user87@example.com,Miami,2025-10-09
+CUST_0088,User88,Smith88,user88@example.com,Austin,2025-05-16
+CUST_0089,User89,Smith89,user89@example.com,Denver,2025-04-19
+CUST_0090,User90,Smith90,user90@example.com,Seattle,2025-06-09
+CUST_0091,User91,Smith91,user91@example.com,Denver,2025-12-10
+CUST_0092,User92,Smith92,user92@example.com,Boston,2025-08-13
+CUST_0093,User93,Smith93,user93@example.com,Miami,2025-03-03
+CUST_0094,User94,Smith94,user94@example.com,Seattle,2025-04-26
+CUST_0095,User95,Smith95,user95@example.com,San Francisco,2025-06-23
+CUST_0096,User96,Smith96,user96@example.com,New York,2025-10-29
+CUST_0097,User97,Smith97,user97@example.com,Seattle,2025-10-29
+CUST_0098,User98,Smith98,user98@example.com,Seattle,2025-01-04
+CUST_0099,User99,Smith99,user99@example.com,San Francisco,2025-11-20
+CUST_0100,User100,Smith100,user100@example.com,New York,2025-04-28

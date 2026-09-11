@@ -1,0 +1,23 @@
+{
+  "base_currency": "USD",
+  "last_updated": "2026-09-11T14:35:31.312112",
+  "rates": {
+    "USD": 1.0,
+    "EUR": 1.08,
+    "GBP": 1.28
+  },
+  "shipping_carriers": [
+    {
+      "carrier_id": "FEDEX",
+      "sla_days": 3
+    },
+    {
+      "carrier_id": "UPS",
+      "sla_days": 4
+    },
+    {
+      "carrier_id": "DHL",
+      "sla_days": 5
+    }
+  ]
+}
