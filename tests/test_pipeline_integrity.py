@@ -1,20 +1,16 @@
 """
-Automated Test Suite for DataForge ETL & Data Quality Gates
-Tests:
-1. Ingestion payload validation
-2. Deduplication integrity
-3. Schema enforcement & non-null assertions
-4. Currency normalization accuracy
-5. Warehouse dimensional referential integrity
+Automated Test Suite for DataForge ETL, S3 Lakehouse & Data Quality Gates
 """
 
 import os
-import json
+import sys
 import pytest
 import pandas as pd
 from deltalake import DeltaTable
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 
 def test_raw_ingestion_artifacts_exist():
     sample_dir = os.path.join(BASE_DIR, "data", "sample")
@@ -50,5 +46,16 @@ def test_currency_conversion_applied():
         expected_min = sample["quantity"] * sample["unit_price"] * 1.05
         assert sample["amount_usd"] >= expected_min, "EUR conversion rate not applied correctly"
 
-if __name__ == "__main__":
-    pytest.main(["-v", __file__])
+def test_s3_lake_bucket_and_objects():
+    from src.ingestion.s3_uploader import get_s3_client
+    s3 = get_s3_client()
+    bucket = "dataforge-lake"
+    
+    # Verify bucket exists and contains raw lake objects
+    response = s3.list_objects_v2(Bucket=bucket, Prefix="bronze/")
+    assert "Contents" in response, "Bronze layer empty in S3 bucket!"
+    
+    keys = [item["Key"] for item in response["Contents"]]
+    assert "bronze/orders/raw_orders.csv" in keys, "raw_orders.csv missing from S3 bronze layer!"
+    assert "bronze/customers/raw_customers.csv" in keys, "raw_customers.csv missing from S3 bronze layer!"
+    assert "bronze/reference_rates/rates.json" in keys, "rates.json missing from S3 bronze layer!"
