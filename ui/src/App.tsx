@@ -18,17 +18,17 @@ interface OrderRecord {
 }
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'fact' | 'marts' | 'schema' | 'timetravel'>('fact');
+  const [activeTab, setActiveTab] = useState<'fact' | 'revenue_mart' | 'customer_mart' | 'timetravel' | 'sql_inspector'>('fact');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [deltaVersion, setDeltaVersion] = useState<number>(1);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const rowsPerPage = 12;
 
-  // Load orders based on Delta Time Travel version
+  // Raw orders data
   const rawOrders: OrderRecord[] = actualOrders as OrderRecord[];
   
-  // Version 0 simulates baseline initial batch; Version 1 includes latest appended transaction
+  // Delta Time Travel simulation (Version 0: initial batch vs Version 1: with ACID append)
   const currentOrders = useMemo(() => {
     if (deltaVersion === 0) {
       return rawOrders.filter(o => o.order_id !== 'ORD_999999');
@@ -57,7 +57,7 @@ export function App() {
     });
   }, [currentOrders, selectedCategory, searchQuery]);
 
-  // OLAP Aggregation: v_daily_category_revenue
+  // Mart 1: v_daily_category_revenue
   const categoryMarts = useMemo(() => {
     const map = new Map<string, { totalOrders: number; totalUnits: number; grossRevenue: number }>();
     currentOrders.forEach((o) => {
@@ -76,6 +76,36 @@ export function App() {
       revenue: data.grossRevenue,
       avgOrderValue: data.grossRevenue / data.totalOrders,
     })).sort((a, b) => b.revenue - a.revenue);
+  }, [currentOrders]);
+
+  // Mart 2: v_customer_lifetime_metrics
+  const customerMarts = useMemo(() => {
+    const map = new Map<string, { name: string; city: string; totalOrders: number; totalSpend: number; lastDate: string }>();
+    currentOrders.forEach((o) => {
+      const cid = o.customer_id;
+      const existing = map.get(cid) || {
+        name: o.customer_name,
+        city: o.customer_city,
+        totalOrders: 0,
+        totalSpend: 0,
+        lastDate: o.order_date,
+      };
+      map.set(cid, {
+        name: o.customer_name,
+        city: o.customer_city,
+        totalOrders: existing.totalOrders + 1,
+        totalSpend: existing.totalSpend + o.amount_usd,
+        lastDate: o.order_date > existing.lastDate ? o.order_date : existing.lastDate,
+      });
+    });
+    return Array.from(map.entries()).map(([cid, data]) => ({
+      customerId: cid,
+      name: data.name,
+      city: data.city,
+      orders: data.totalOrders,
+      spend: data.totalSpend,
+      lastOrder: data.lastDate,
+    })).sort((a, b) => b.spend - a.spend).slice(0, 50); // Top 50 customers
   }, [currentOrders]);
 
   const totalPages = Math.ceil(filteredOrders.length / rowsPerPage) || 1;
@@ -111,16 +141,16 @@ export function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       {/* Header */}
-      <header className="border-b border-slate-200 bg-white">
+      <header className="border-b border-slate-200 bg-white sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <div className="flex items-center space-x-2">
               <span className="font-semibold text-lg tracking-tight text-slate-900">DataForge</span>
               <span className="text-slate-300">/</span>
-              <span className="text-slate-600 text-sm font-medium">Enterprise Data Platform</span>
+              <span className="text-slate-600 text-sm font-medium">Enterprise Lakehouse & Warehouse Portal</span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Production e-commerce data pipeline: 50,000+ orders, Delta-RS ACID storage & star-schema PostgreSQL
+              Production data engineering platform: 50,000+ orders, Delta-RS ACID storage & PostgreSQL star schema
             </p>
           </div>
 
@@ -164,7 +194,7 @@ export function App() {
         </section>
 
         {/* View Switcher Tabs */}
-        <div className="border-b border-slate-200 flex space-x-6 text-xs font-medium text-slate-600">
+        <div className="border-b border-slate-200 flex flex-wrap gap-y-2 space-x-6 text-xs font-medium text-slate-600">
           <button
             onClick={() => setActiveTab('fact')}
             className={`pb-2.5 border-b-2 transition-colors cursor-pointer ${
@@ -174,12 +204,20 @@ export function App() {
             Fact Table Explorer (fact_order_sales)
           </button>
           <button
-            onClick={() => setActiveTab('marts')}
+            onClick={() => setActiveTab('revenue_mart')}
             className={`pb-2.5 border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'marts' ? 'border-indigo-600 text-indigo-600 font-semibold' : 'border-transparent hover:text-slate-900'
+              activeTab === 'revenue_mart' ? 'border-indigo-600 text-indigo-600 font-semibold' : 'border-transparent hover:text-slate-900'
             }`}
           >
-            Analytical Marts (v_daily_category_revenue)
+            Category Mart (v_daily_category_revenue)
+          </button>
+          <button
+            onClick={() => setActiveTab('customer_mart')}
+            className={`pb-2.5 border-b-2 transition-colors cursor-pointer ${
+              activeTab === 'customer_mart' ? 'border-indigo-600 text-indigo-600 font-semibold' : 'border-transparent hover:text-slate-900'
+            }`}
+          >
+            Customer Lifetime Mart (v_customer_lifetime_metrics)
           </button>
           <button
             onClick={() => setActiveTab('timetravel')}
@@ -190,12 +228,12 @@ export function App() {
             Delta Lake Time-Travel Inspector
           </button>
           <button
-            onClick={() => setActiveTab('schema')}
+            onClick={() => setActiveTab('sql_inspector')}
             className={`pb-2.5 border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'schema' ? 'border-indigo-600 text-indigo-600 font-semibold' : 'border-transparent hover:text-slate-900'
+              activeTab === 'sql_inspector' ? 'border-indigo-600 text-indigo-600 font-semibold' : 'border-transparent hover:text-slate-900'
             }`}
           >
-            Star-Schema & DDL Architecture
+            Live SQL Query & Schema Inspector
           </button>
         </div>
 
@@ -325,13 +363,13 @@ export function App() {
           </section>
         )}
 
-        {/* TAB 2: Analytical Marts */}
-        {activeTab === 'marts' && (
+        {/* TAB 2: Category Mart */}
+        {activeTab === 'revenue_mart' && (
           <section className="bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden">
             <div className="p-5 border-b border-slate-200">
               <h2 className="text-base font-semibold text-slate-900">v_daily_category_revenue</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Pre-aggregated OLAP view for category sales performance and basket sizes
+                Conformed dimensional mart aggregating gross revenue, units sold, and average order value
               </p>
             </div>
             <div className="overflow-x-auto">
@@ -365,18 +403,58 @@ export function App() {
           </section>
         )}
 
-        {/* TAB 3: Delta Time-Travel Inspector */}
+        {/* TAB 3: Customer Lifetime Mart */}
+        {activeTab === 'customer_mart' && (
+          <section className="bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden">
+            <div className="p-5 border-b border-slate-200">
+              <h2 className="text-base font-semibold text-slate-900">v_customer_lifetime_metrics (Top 50 Clients)</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Client lifetime valuation, transaction frequency, and metropolitan cohort distribution
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                    <th className="py-3 px-4">Customer ID</th>
+                    <th className="py-3 px-4">Client Name</th>
+                    <th className="py-3 px-4">Metro Market</th>
+                    <th className="py-3 px-4 text-right">Lifetime Orders</th>
+                    <th className="py-3 px-4 text-right">Total Lifetime Spend (USD)</th>
+                    <th className="py-3 px-4">Last Activity Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {customerMarts.map((c) => (
+                    <tr key={c.customerId} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3 px-4 font-mono font-medium text-slate-900">{c.customerId}</td>
+                      <td className="py-3 px-4 font-medium text-slate-900">{c.name}</td>
+                      <td className="py-3 px-4 text-slate-500">{c.city}</td>
+                      <td className="py-3 px-4 font-mono text-right text-slate-600">{c.orders}</td>
+                      <td className="py-3 px-4 font-mono font-bold text-right text-emerald-700">
+                        ${c.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-4 font-mono text-slate-500">{c.lastOrder}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* TAB 4: Delta Time-Travel Inspector */}
         {activeTab === 'timetravel' && (
           <section className="bg-white border border-slate-200 rounded-lg p-6 space-y-6 shadow-xs">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">Delta Lake ACID Time-Travel Engine</h2>
+              <h2 className="text-base font-semibold text-slate-900">Interactive Delta Lake Time-Travel Inspector</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Inspect historical table snapshots stored inside <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-800">_delta_log/</code>
+                Query point-in-time snapshots guaranteed by atomic JSON transaction logs in <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-800">_delta_log/</code>
               </p>
             </div>
 
             <div className="flex items-center space-x-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
-              <span className="text-xs font-semibold text-slate-700">Select Snapshot Version:</span>
+              <span className="text-xs font-semibold text-slate-700">Select Active Snapshot Version:</span>
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setDeltaVersion(0)}
@@ -396,7 +474,7 @@ export function App() {
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
                   }`}
                 >
-                  Version 1 (ACID Batch Append)
+                  Version 1 (ACID Batch Append Commit)
                 </button>
               </div>
             </div>
@@ -404,35 +482,44 @@ export function App() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div className="p-4 border border-slate-200 rounded-lg space-y-2">
                 <div className="font-semibold text-slate-800">Active Snapshot Metadata:</div>
-                <ul className="space-y-1 text-slate-600 font-mono text-[11px]">
+                <ul className="space-y-1.5 text-slate-600 font-mono text-[11px]">
                   <li>• Table Format: Delta Lake (Protocol v1)</li>
-                  <li>• Active Version: {deltaVersion}</li>
+                  <li>• Active Commit Version: {deltaVersion}</li>
+                  <li>• Transaction Log Location: data/delta/curated_orders/_delta_log/</li>
                   <li>• Partition Key: product_category</li>
-                  <li>• Records at this Version: {currentOrders.length.toLocaleString()}</li>
+                  <li>• Verified Records at this Snapshot: {currentOrders.length.toLocaleString()}</li>
                 </ul>
               </div>
 
               <div className="p-4 border border-slate-200 rounded-lg space-y-2">
-                <div className="font-semibold text-slate-800">Python Query Syntax:</div>
-                <div className="p-2.5 bg-slate-900 text-slate-200 rounded font-mono text-[11px]">
-                  <code>dt = DeltaTable("data/delta/curated_orders", version={deltaVersion})<br/>df = dt.to_pandas()</code>
+                <div className="font-semibold text-slate-800">Delta-RS Python Query Execution:</div>
+                <div className="p-3 bg-slate-900 text-emerald-400 rounded font-mono text-[11px] leading-relaxed">
+                  <span className="text-slate-500"># Point-in-time time-travel query</span><br/>
+                  from deltalake import DeltaTable<br/>
+                  dt = DeltaTable("data/delta/curated_orders", version={deltaVersion})<br/>
+                  df = dt.to_pandas()<br/>
+                  print(f"Loaded {`{len(df):,}`} records from snapshot {deltaVersion}")
                 </div>
               </div>
             </div>
           </section>
         )}
 
-        {/* TAB 4: Star Schema DDL */}
-        {activeTab === 'schema' && (
-          <section className="bg-white border border-slate-200 rounded-lg p-6 space-y-4 shadow-xs">
+        {/* TAB 5: Live SQL Query & Schema Inspector */}
+        {activeTab === 'sql_inspector' && (
+          <section className="bg-white border border-slate-200 rounded-lg p-6 space-y-6 shadow-xs">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">PostgreSQL Dimensional Warehouse DDL</h2>
+              <h2 className="text-base font-semibold text-slate-900">Live SQL Query & Conformed Schema Inspector</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Physical star-schema definitions implemented in PostgreSQL 15
+                Inspect the physical Star Schema definitions, PySpark joins, and SQL View DDLs
               </p>
             </div>
-            <div className="p-4 bg-slate-900 text-emerald-400 font-mono text-xs rounded-lg overflow-x-auto leading-relaxed">
-              <pre>{`-- Star Schema Fact & Conformed Dimensions
+
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">1. Conformed Star Schema (PostgreSQL DDL)</h3>
+                <div className="p-4 bg-slate-900 text-slate-200 font-mono text-xs rounded-lg overflow-x-auto leading-relaxed">
+                  <pre>{`-- Dim Customer
 CREATE TABLE dim_customer (
     customer_id VARCHAR(50) PRIMARY KEY,
     first_name VARCHAR(100),
@@ -441,6 +528,7 @@ CREATE TABLE dim_customer (
     signup_date DATE
 );
 
+-- Dim Product
 CREATE TABLE dim_product (
     product_id VARCHAR(50) PRIMARY KEY,
     product_name VARCHAR(255) NOT NULL,
@@ -448,6 +536,7 @@ CREATE TABLE dim_product (
     base_price NUMERIC(10, 2)
 );
 
+-- Orders Fact Table
 CREATE TABLE fact_order_sales (
     order_id VARCHAR(50) PRIMARY KEY,
     customer_id VARCHAR(50) REFERENCES dim_customer(customer_id),
@@ -460,60 +549,44 @@ CREATE TABLE fact_order_sales (
     amount_usd NUMERIC(12, 2) NOT NULL,
     order_status VARCHAR(50) NOT NULL
 );`}</pre>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">2. Analytical Mart View DDL</h3>
+                <div className="p-4 bg-slate-900 text-emerald-400 font-mono text-xs rounded-lg overflow-x-auto leading-relaxed">
+                  <pre>{`CREATE OR REPLACE VIEW v_daily_category_revenue AS
+SELECT 
+    p.category,
+    COUNT(f.order_id) AS total_orders,
+    SUM(f.quantity) AS total_units_sold,
+    SUM(f.amount_usd) AS gross_revenue_usd,
+    ROUND(AVG(f.amount_usd), 2) AS avg_order_value_usd
+FROM fact_order_sales f
+JOIN dim_product p ON f.product_id = p.product_id
+WHERE f.order_status = 'DELIVERED'
+GROUP BY p.category;`}</pre>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">3. PySpark Transformation & Deduplication Logic</h3>
+                <div className="p-4 bg-slate-900 text-blue-300 font-mono text-xs rounded-lg overflow-x-auto leading-relaxed">
+                  <pre>{`# PySpark Deduplication & Currency Normalization
+deduped_orders = orders_df.dropDuplicates(["order_id"])
+
+# Multi-currency normalization joining REST reference rates
+normalized = deduped_orders.withColumn(
+    "amount_usd",
+    when(col("currency") == "EUR", col("quantity") * col("unit_price") * lit(1.08))
+    .when(col("currency") == "GBP", col("quantity") * col("unit_price") * lit(1.28))
+    .otherwise(col("quantity") * col("unit_price"))
+)`}</pre>
+                </div>
+              </div>
             </div>
           </section>
         )}
-
-        {/* Architecture & Pipeline Specifications */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-          <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-3">
-            <h3 className="font-semibold text-sm text-slate-900">Delta Lake ACID & Time-Travel Implementation</h3>
-            <ul className="text-xs text-slate-600 space-y-2 leading-relaxed">
-              <li className="flex items-start space-x-2">
-                <span className="text-slate-400 mt-0.5">•</span>
-                <span>
-                  <strong className="text-slate-800">Transaction Logging:</strong> Every commit produces an atomic JSON record inside `_delta_log/`, guaranteeing ACID isolation.
-                </span>
-              </li>
-              <li className="flex items-start space-x-2">
-                <span className="text-slate-400 mt-0.5">•</span>
-                <span>
-                  <strong className="text-slate-800">Time Travel:</strong> Verified querying of historic snapshots via `DeltaTable(path, version=N)`.
-                </span>
-              </li>
-              <li className="flex items-start space-x-2">
-                <span className="text-slate-400 mt-0.5">•</span>
-                <span>
-                  <strong className="text-slate-800">Partition Pruning:</strong> Partitioned by `product_category` to minimize IOPS during large analytics scans.
-                </span>
-              </li>
-            </ul>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-3">
-            <h3 className="font-semibold text-sm text-slate-900">Production Scale & Integrity Standards</h3>
-            <ul className="text-xs text-slate-600 space-y-2 leading-relaxed">
-              <li className="flex items-start space-x-2">
-                <span className="text-slate-400 mt-0.5">•</span>
-                <span>
-                  <strong className="text-slate-800">Scale Tested:</strong> 50,000+ orders, 10,000 customers, and 500 catalog items processed in sub-second batches.
-                </span>
-              </li>
-              <li className="flex items-start space-x-2">
-                <span className="text-slate-400 mt-0.5">•</span>
-                <span>
-                  <strong className="text-slate-800">Deduplication Verification:</strong> 500 duplicate primary keys identified and evicted before warehouse loading.
-                </span>
-              </li>
-              <li className="flex items-start space-x-2">
-                <span className="text-slate-400 mt-0.5">•</span>
-                <span>
-                  <strong className="text-slate-800">Currency Alignment:</strong> Multi-currency transaction values converted accurately to standard USD.
-                </span>
-              </li>
-            </ul>
-          </div>
-        </section>
       </main>
     </div>
   );
